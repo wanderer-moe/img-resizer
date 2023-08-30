@@ -1,0 +1,11 @@
+name = "img-resizer"
+workers_dev = true
+compatibility_date = "2023-08-21"
+main = "build/worker/shim.mjs"
+
+[vars]
+WORKERS_RS_VERSION = "0.0.17"
+WORKERS_RS_GIT_REPO = "https://git.wanderer.moe/img-resizer"
+
+[build]
+command = "cargo install -q worker-build && worker-build --release"
