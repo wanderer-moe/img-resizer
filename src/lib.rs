@@ -45,16 +45,11 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                         let resized_image_data = buf.into_inner();
 
                         let resized_image_base64 =
-                            general_purpose::STANDARD.encode(&resized_image_data);
+                            general_purpose::STANDARD.encode(resized_image_data);
 
                         Response::from_json(&json!({ "image": resized_image_base64 }))
                     }
-                    FormEntry::Field(_) => Response::error(
-                        "\
-                    Expected file
-                    ",
-                        400,
-                    ),
+                    FormEntry::Field(_) => Response::error("Expected file", 400),
                 };
             }
             Response::error("Bad Request", 400)
