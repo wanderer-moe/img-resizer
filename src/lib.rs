@@ -33,7 +33,7 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                         },
                         "width": {
                             "type": "text",
-                            "description": "New image width, must be ^ 2 from 16 to 102",
+                            "description": "New image width, must be ^ 2 from 16 to 1024",
                             "required": "false",
                             "default": "128",
                         },
