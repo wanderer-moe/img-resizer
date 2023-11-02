@@ -1,10 +1,7 @@
-use base64::{engine::general_purpose, Engine as _};
-use image::imageops::resize;
-use image::io::Reader as ImageReader;
 use serde_json::json;
-use std::io::Cursor;
 use worker::*;
 
+mod resize;
 mod utils;
 
 fn log_request(req: &Request) {
@@ -15,7 +12,6 @@ fn log_request(req: &Request) {
 pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     log_request(&req);
 
-    // panic hook which logs error messages into console
     utils::set_panic_hook();
 
     let router = Router::new();
@@ -23,41 +19,72 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .get("/", |_, ctx| {
             let version = ctx.var("WORKERS_RS_VERSION")?.to_string();
             let git_repo = ctx.var("WORKERS_RS_GIT_REPO")?.to_string();
-            Response::from_json(&json!({ "version": version, "git_repo": git_repo }))
+            Response::from_json(
+                &json!({ "version": version, "git_repo": git_repo, "endpoint": {
+                    "resize": "/resize",
+                    "method": "POST",
+                    "accepts": "multipart/form-data",
+                    "description": "Resize an image to a given width and height",
+                    "params": {
+                        "file": {
+                            "type": "file",
+                            "description": "The image file to resize",
+                            "required": "true",
+                        },
+                        "width": {
+                            "type": "text",
+                            "description": "New image width, must be ^ 2 from 16 to 102",
+                            "required": "false",
+                            "default": "128",
+                        },
+                        "height": {
+                            "type": "text",
+                            "description": "New image height, must be ^ 2 from 16 to 1024",
+                            "required": "false",
+                            "default": "128",
+                        }
+                    }
+                }
+                }),
+            )
         })
-        // post /resize form, take in image and resize it
         .post_async("/resize", |mut req, _ctx| async move {
             let form = req.form_data().await?;
-            if let Some(entry) = form.get("file") {
-                return match entry {
-                    FormEntry::File(file) => {
-                        let bytes = file.bytes().await?;
-                        let img = ImageReader::new(std::io::Cursor::new(bytes))
-                            .with_guessed_format()
-                            .unwrap()
-                            .decode()
-                            .unwrap();
-                        let resized = resize(&img, 128, 128, image::imageops::FilterType::Nearest);
-                        let mut buf = Cursor::new(Vec::new());
-                        resized
-                            .write_to(&mut buf, image::ImageOutputFormat::Png)
-                            .unwrap();
-                        let resized_image_data = buf.into_inner();
 
-                        let resized_image_base64 =
-                            general_purpose::STANDARD.encode(resized_image_data);
+            let width = match form.get("width") {
+                Some(FormEntry::Field(field)) => field.parse::<u32>().ok(),
+                _ => None,
+            };
 
-                        Response::from_json(&json!({ "image": resized_image_base64 }))
-                    }
-                    FormEntry::Field(_) => Response::error("Expected file", 400),
-                };
+            let height = match form.get("height") {
+                Some(FormEntry::Field(field)) => field.parse::<u32>().ok(),
+                _ => None,
+            };
+
+            let file = match form.get("file") {
+                Some(FormEntry::File(file)) => Some(file),
+                _ => return Response::error("Bad Request", 400),
+            };
+
+            // if width or height is not provided, we default to 128 as stated in the readme
+            let width = width.unwrap_or(128);
+            let height = height.unwrap_or(128);
+
+            if !(resize::validate_size(width).await) || !(resize::validate_size(height).await) {
+                return Response::error(
+                    "Invalid Width or Height Parameter: must be ^ 2 from 16 to 1024.",
+                    400,
+                );
             }
+
+            if let Some(file) = file {
+                let resized_image = resize::resize_image(file, width, height).await?;
+                return Response::from_json(
+                    &json!({ "image": resized_image, "width": width, "height": height }),
+                );
+            }
+
             Response::error("Bad Request", 400)
-        })
-        .get("/stats", |_, ctx| {
-            let version = ctx.var("WORKERS_RS_VERSION")?.to_string();
-            let git_repo = ctx.var("WORKERS_RS_GIT_REPO")?.to_string();
-            Response::from_json(&json!({ "version": version, "git_repo": git_repo }))
         })
         .run(req, env)
         .await
