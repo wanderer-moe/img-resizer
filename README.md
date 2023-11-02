@@ -7,7 +7,7 @@ Feel free to use this API in your projects; please include pertinent information
 ## Supported Image Dimensions
 
 - This worker also accepts dimensions for `width` and `height` within the formdata. 
-- These dimensions should be powers of 2, ranging from 16px to 2048px. If no dimensions are specified, it will default to `128`, invalid dimensions will throw `400`.
+- These dimensions should be powers of 2, ranging from 16px to 1024px. If no dimensions are specified, it will default to `128`, invalid dimensions will throw `400`.
 
 ## Usage
 
