@@ -1,6 +1,6 @@
 # Image Resizer
 
-Image Rezier Cloudflare Worker that returns base64 encoded image data.
+Image Resizer Cloudflare Worker, returns `base64` encoded image data.
 
 Feel free to use this API in your projects; please include pertinent information in the `User-Agent` header, such as project name or a URL.
 
